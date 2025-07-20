@@ -27,6 +27,17 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
+        .form-input {
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .form-input:focus {
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+            outline: none;
+        }
+        .guest-list-item {
+            border-left: 4px solid #D4AF37;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -42,8 +53,8 @@
 
         <!-- Invitation Image -->
         <div class="mb-10 rounded-lg overflow-hidden custom-shadow">
-            <!-- FIXED: Using the direct "raw" GitHub URL for the image -->
-            <img src="https://raw.githubusercontent.com/kankit12/AnikaHalfSareePooja/main/AnikaInvite.jpeg" alt="Invitation for Anika Kantheti's Half Saree Ceremony" class="w-full h-auto">
+            <!-- FIXED: Using the stable, direct Google Storage URL for the image -->
+            <img src="https://storage.googleapis.com/gemini-prod-us-west1-409903-output-documents/uploaded:AnikaInvite.jpg-b27ca98e-c3d3-4802-9c9c-f4694bf94ad9" alt="Invitation for Anika Kantheti's Half Saree Ceremony" class="w-full h-auto">
         </div>
 
         <!-- Add to Calendar Section -->
@@ -61,36 +72,182 @@
             </div>
         </section>
 
-        <!-- RSVP Section -->
-        <section id="rsvp-section" class="mb-10 p-6 md:p-8 bg-white rounded-lg custom-shadow text-center">
-            <h3 class="text-3xl font-bold mb-4 text-amber-900">Kindly RSVP</h3>
-            <p class="mb-6 text-amber-800/90">Please RSVP by Thursday, July 24th, 2025.</p>
-            <a id="rsvp-email-link" href="#" class="btn inline-block text-white bg-amber-800 hover:bg-amber-900 focus:ring-4 focus:outline-none focus:ring-amber-300 font-medium rounded-lg text-lg px-8 py-4">
-                RSVP via Email
-            </a>
+        <!-- RSVP Form Section -->
+        <section id="rsvp-section" class="mb-10 p-6 md:p-8 bg-white rounded-lg custom-shadow">
+            <h3 class="text-3xl font-bold text-center mb-6 text-amber-900">Kindly RSVP</h3>
+            <form id="rsvp-form" class="max-w-lg mx-auto">
+                <div class="mb-5">
+                    <label for="name" class="block mb-2 text-sm font-medium text-amber-800">Full Name(s)</label>
+                    <input type="text" id="name" name="name" class="form-input bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" placeholder="Amit & Lekha Patel" required>
+                </div>
+                <div class="mb-5">
+                    <label class="block mb-2 text-sm font-medium text-amber-800">Will you be attending?</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center p-3 border border-gray-300 rounded-lg w-full cursor-pointer hover:bg-green-50">
+                            <input type="radio" name="attending" value="Yes" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500" required>
+                            <span class="ml-3 text-sm font-medium text-gray-900">Graciously Accept</span>
+                        </label>
+                        <label class="flex items-center p-3 border border-gray-300 rounded-lg w-full cursor-pointer hover:bg-red-50">
+                            <input type="radio" name="attending" value="No" class="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500">
+                            <span class="ml-3 text-sm font-medium text-gray-900">Regretfully Decline</span>
+                        </label>
+                    </div>
+                </div>
+                 <div class="mb-6" id="guest-count-wrapper" style="display: none;">
+                    <label for="guests" class="block mb-2 text-sm font-medium text-amber-800">Number of Guests (including yourself)</label>
+                    <input type="number" id="guests" name="guests" class="form-input bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" value="1" min="1" max="10">
+                </div>
+                <button type="submit" id="submit-button" class="btn w-full text-white bg-amber-800 hover:bg-amber-900 focus:ring-4 focus:outline-none focus:ring-amber-300 font-medium rounded-lg text-sm px-5 py-3 text-center">Submit RSVP</button>
+            </form>
+            <div id="form-message" class="mt-4 text-center font-medium"></div>
+        </section>
+
+        <!-- Guest List Section -->
+        <section id="guest-list-section" class="p-6 md:p-8 bg-white/70 rounded-lg custom-shadow">
+             <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-amber-900">Guest List</h3>
+                <button id="toggle-guest-list" class="text-sm text-amber-700 hover:underline">Show List</button>
+            </div>
+            <div id="guest-list-content" class="hidden">
+                <div class="bg-amber-100/50 p-4 rounded-lg mb-4 text-center">
+                    <p class="text-lg font-semibold text-amber-900">Total Attending: <span id="total-attending">0</span></p>
+                </div>
+                <div id="guest-list-container" class="space-y-3">
+                    <p class="text-center text-gray-500">Authenticating to see guest list...</p>
+                </div>
+            </div>
         </section>
 
     </div>
 
-    <!-- App Logic -->
-    <script>
-        // --- EVENT DETAILS for Calendar and RSVP ---
+    <!-- Firebase and App Logic -->
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIGURATION ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'anika-saree-ceremony-final';
+        const RSVP_COLLECTION = `artifacts/${appId}/public/data/rsvps`;
+
+        // --- DOM ELEMENTS ---
+        const rsvpForm = document.getElementById('rsvp-form');
+        const formMessage = document.getElementById('form-message');
+        const guestCountWrapper = document.getElementById('guest-count-wrapper');
+        const attendingRadios = document.querySelectorAll('input[name="attending"]');
+        const guestListContainer = document.getElementById('guest-list-container');
+        const totalAttendingEl = document.getElementById('total-attending');
+        const toggleGuestListBtn = document.getElementById('toggle-guest-list');
+        const guestListContent = document.getElementById('guest-list-content');
+        
+        // --- INITIALIZATION ---
+        let db, auth;
+        let unsubscribeFromRsvps = null;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+            document.getElementById('form-message').textContent = 'Error: Could not connect to the RSVP service.';
+        }
+
+        // --- GUEST LIST LOGIC ---
+        function listenForRsvps() {
+            if (unsubscribeFromRsvps) unsubscribeFromRsvps();
+
+            if (!db) {
+                guestListContainer.innerHTML = '<p class="text-center text-red-500">Database connection not available.</p>';
+                return;
+            }
+            const q = query(collection(db, RSVP_COLLECTION));
+            
+            unsubscribeFromRsvps = onSnapshot(q, (snapshot) => {
+                if (snapshot.empty) {
+                    guestListContainer.innerHTML = '<p class="text-center text-gray-500">No RSVPs received yet.</p>';
+                    totalAttendingEl.textContent = '0';
+                    return;
+                }
+
+                let totalAttending = 0;
+                const rsvpList = [];
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    rsvpList.push(data);
+                    if (data.attending === 'Yes' && data.guests) {
+                        totalAttending += parseInt(data.guests, 10);
+                    }
+                });
+
+                rsvpList.sort((a, b) => b.submittedAt.toMillis() - a.submittedAt.toMillis());
+
+                guestListContainer.innerHTML = ''; 
+                
+                rsvpList.forEach(data => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'guest-list-item bg-white p-4 rounded-md flex justify-between items-center';
+                    
+                    const attendingStatus = data.attending === 'Yes' 
+                        ? `<span class="text-xs font-bold uppercase py-1 px-2 rounded-full bg-green-200 text-green-800">${data.guests} Guest(s)</span>`
+                        : `<span class="text-xs font-bold uppercase py-1 px-2 rounded-full bg-red-200 text-red-800">Not Attending</span>`;
+
+                    listItem.innerHTML = `
+                        <div>
+                            <p class="font-semibold text-gray-800">${data.name}</p>
+                            <p class="text-xs text-gray-500">Submitted: ${data.submittedAt.toDate().toLocaleString()}</p>
+                        </div>
+                        ${attendingStatus}
+                    `;
+                    guestListContainer.appendChild(listItem);
+                });
+
+                totalAttendingEl.textContent = totalAttending;
+
+            }, (error) => {
+                console.error("Error listening for RSVPs:", error);
+                guestListContainer.innerHTML = `<p class="text-center text-red-500">Could not load guest list. Error: ${error.message}</p>`;
+            });
+        }
+        
+        // --- AUTHENTICATION ---
+        if (auth) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    console.log("Authenticated successfully:", user.uid);
+                    listenForRsvps();
+                } else {
+                    if (unsubscribeFromRsvps) unsubscribeFromRsvps();
+                    (async () => {
+                        try {
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (error) {
+                            console.error("Authentication failed:", error);
+                            formMessage.textContent = `Authentication Error: ${error.message}`;
+                        }
+                    })();
+                }
+            });
+        }
+
+        // --- EVENT DETAILS for Calendar ---
         const eventDetails = {
             title: "Anika Kantheti's Half Saree Ceremony",
             location: "220 Brincefield Place, Cary, NC, 27519",
             description: "Cordially invited to join in the occasion of the Half Saree Ceremony of Anika Kantheti.",
-            // Event is July 27, 2025, 6:30 PM - 8:30 PM EDT. EDT is UTC-4.
-            // Start: 2025-07-27 18:30 EDT -> 2025-07-27 22:30 UTC
-            // End:   2025-07-27 20:30 EDT -> 2025-07-28 00:30 UTC
             startUTC: '20250727T223000Z',
             endUTC: '20250728T003000Z',
-            // IMPORTANT: Replace with the email address where you want to receive RSVPs.
-            rsvpEmail: "YOUR_EMAIL_HERE@example.com" 
         };
 
         // --- UI LOGIC ---
         function setupCalendarLinks() {
-            // Google Calendar
             const googleLink = document.getElementById('google-calendar-link');
             const googleUrl = new URL('https://www.google.com/calendar/render');
             googleUrl.searchParams.append('action', 'TEMPLATE');
@@ -100,52 +257,68 @@
             googleUrl.searchParams.append('location', eventDetails.location);
             googleLink.href = googleUrl.toString();
 
-            // Apple Calendar (ICS file)
             const appleLink = document.getElementById('apple-calendar-link');
             const icsContent = [
-                'BEGIN:VCALENDAR',
-                'VERSION:2.0',
-                'BEGIN:VEVENT',
-                `URL:${document.location.href}`,
-                `DTSTART:${eventDetails.startUTC}`,
-                `DTEND:${eventDetails.endUTC}`,
-                `SUMMARY:${eventDetails.title}`,
-                `DESCRIPTION:${eventDetails.description}`,
-                `LOCATION:${eventDetails.location}`,
-                'END:VEVENT',
-                'END:VCALENDAR'
+                'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+                `URL:${document.location.href}`, `DTSTART:${eventDetails.startUTC}`, `DTEND:${eventDetails.endUTC}`,
+                `SUMMARY:${eventDetails.title}`, `DESCRIPTION:${eventDetails.description}`, `LOCATION:${eventDetails.location}`,
+                'END:VEVENT', 'END:VCALENDAR'
             ].join('\n');
             appleLink.href = `data:text/calendar;charset=utf8,${encodeURIComponent(icsContent)}`;
             appleLink.download = 'anikas-ceremony.ics';
         }
 
-        function setupRsvpLink() {
-            const rsvpLink = document.getElementById('rsvp-email-link');
-            const subject = encodeURIComponent(`RSVP for Anika's Half Saree Ceremony`);
-            const body = encodeURIComponent(
-`Hello,
+        attendingRadios.forEach(radio => {
+            radio.addEventListener('change', (event) => {
+                guestCountWrapper.style.display = (event.target.value === 'Yes') ? 'block' : 'none';
+            });
+        });
 
-We would love to attend!
+        rsvpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!auth || !auth.currentUser) {
+                formMessage.textContent = "Service is not ready. Please try again in a moment.";
+                formMessage.style.color = 'red';
+                return;
+            }
 
-Name(s): 
-Number of Guests: 
+            const submitButton = document.getElementById('submit-button');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+            formMessage.textContent = '';
 
----
-Alternatively, please let us know if you cannot make it.
+            const formData = new FormData(rsvpForm);
+            const rsvpData = {
+                name: formData.get('name'),
+                attending: formData.get('attending'),
+                guests: formData.get('attending') === 'Yes' ? parseInt(formData.get('guests'), 10) : 0,
+                submittedAt: new Date(),
+            };
 
-Thank you!`
-            );
-            rsvpLink.href = `mailto:${eventDetails.rsvpEmail}?subject=${subject}&body=${body}`;
-        }
+            try {
+                await addDoc(collection(db, RSVP_COLLECTION), rsvpData);
+                formMessage.textContent = "Thank you! Your RSVP has been recorded.";
+                formMessage.style.color = 'green';
+                rsvpForm.reset();
+                guestCountWrapper.style.display = 'none';
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                formMessage.textContent = "An error occurred. Please try again.";
+                formMessage.style.color = 'red';
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit RSVP';
+            }
+        });
+        
+        toggleGuestListBtn.addEventListener('click', () => {
+            const isHidden = guestListContent.classList.toggle('hidden');
+            toggleGuestListBtn.textContent = isHidden ? 'Show List' : 'Hide List';
+        });
 
         // --- INITIALIZE PAGE ---
-        // This function runs when the page has finished loading.
-        window.onload = function() {
-            setupCalendarLinks();
-            setupRsvpLink();
-        };
+        setupCalendarLinks();
 
     </script>
 </body>
 </html>
-
