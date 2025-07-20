@@ -276,50 +276,46 @@
             const rsvpData = {
                 name: new FormData(rsvpForm).get('name'),
                 attending: new FormData(rsvpForm).get('attending'),
-                guests: new FormData(rsvpForm).get('attending') === 'Yes' ? parseInt(new FormData(rsvpForm).get('guests'), 10) : 0,
+                guests: new FormData(rsvpForm).get('attending') === 'Yes' ? parseInt(new FormData(rsvpForm).get('guests') || '1', 10) : 0,
                 submittedAt: new Date(),
             };
             
-            const storedDocId = localStorage.getItem('anikaRsvpDocId');
-            let docRef;
+            try {
+                const storedDocId = localStorage.getItem('anikaRsvpDocId');
+                let docExists = false;
 
-            if (storedDocId) {
-                docRef = doc(db, RSVP_COLLECTION, storedDocId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    // Document exists, so update it.
-                    try {
+                if (storedDocId) {
+                    const docRef = doc(db, RSVP_COLLECTION, storedDocId);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        // Document exists, so update it.
                         await updateDoc(docRef, rsvpData);
                         formMessage.textContent = "Thank you! Your RSVP has been updated.";
-                    } catch (error) {
-                         console.error("Error updating document: ", error);
-                         formMessage.textContent = "An error occurred while updating. Please try again.";
-                         formMessage.style.color = 'red';
+                        docExists = true;
                     }
-                } else {
-                    // Document doesn't exist (stale ID), so create a new one.
-                    docRef = null; 
                 }
-            }
-            
-            if (!docRef) {
-                // Create a new document if one doesn't exist or the stored one was stale.
-                try {
+                
+                if (!docExists) {
+                    // Create a new document if one doesn't exist or the stored one was stale.
                     const newDocRef = await addDoc(collection(db, RSVP_COLLECTION), rsvpData);
                     localStorage.setItem('anikaRsvpDocId', newDocRef.id);
                     formMessage.textContent = "Thank you! Your RSVP has been recorded.";
-                } catch(error) {
-                    console.error("Error adding document: ", error);
-                    formMessage.textContent = "An error occurred while submitting. Please try again.";
-                    formMessage.style.color = 'red';
                 }
-            }
 
-            formMessage.style.color = 'green';
-            rsvpForm.reset();
-            guestCountWrapper.style.display = 'none';
-            submitButton.disabled = false;
-            submitButton.textContent = 'Submit RSVP';
+                formMessage.style.color = 'green';
+                rsvpForm.reset();
+                guestCountWrapper.style.display = 'none';
+
+            } catch (error) {
+                console.error("Error submitting RSVP: ", error);
+                formMessage.textContent = "An error occurred while submitting. Please try again.";
+                formMessage.style.color = 'red';
+                // Clear the stale doc ID if it caused an error
+                localStorage.removeItem('anikaRsvpDocId'); 
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit RSVP';
+            }
         });
         
         toggleGuestListBtn.addEventListener('click', () => {
