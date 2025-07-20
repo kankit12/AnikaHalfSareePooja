@@ -85,11 +85,11 @@
                     <div class="flex gap-4">
                         <label class="flex items-center p-3 border border-gray-300 rounded-lg w-full cursor-pointer hover:bg-green-50">
                             <input type="radio" name="attending" value="Yes" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500" required>
-                            <span class="ml-3 text-sm font-medium text-gray-900"> Accept</span>
+                            <span class="ml-3 text-sm font-medium text-gray-900">Graciously Accept</span>
                         </label>
                         <label class="flex items-center p-3 border border-gray-300 rounded-lg w-full cursor-pointer hover:bg-red-50">
                             <input type="radio" name="attending" value="No" class="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500">
-                            <span class="ml-3 text-sm font-medium text-gray-900"> Decline</span>
+                            <span class="ml-3 text-sm font-medium text-gray-900">Regretfully Decline</span>
                         </label>
                     </div>
                 </div>
@@ -125,10 +125,10 @@
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- CONFIGURATION ---
-        // FIXED: You MUST replace these placeholder values with your actual Firebase keys.
+        // You MUST replace these placeholder values with your actual Firebase keys.
         const firebaseConfig = {
           apiKey: "AIzaSyADlqsxQg6Fel95c2GwBG7MHc6wd3tamO0",
           authDomain: "anika-rsvp.firebaseapp.com",
@@ -296,15 +296,30 @@
                 guests: formData.get('attending') === 'Yes' ? parseInt(formData.get('guests'), 10) : 0,
                 submittedAt: new Date(),
             };
+            
+            // NEW: Check for an existing RSVP to update it.
+            const storedDocId = localStorage.getItem('anikaRsvpDocId');
 
             try {
-                await addDoc(collection(db, RSVP_COLLECTION), rsvpData);
-                formMessage.textContent = "Thank you! Your RSVP has been recorded.";
+                if (storedDocId) {
+                    // This user has RSVP'd before, so update their existing entry.
+                    const docRef = doc(db, RSVP_COLLECTION, storedDocId);
+                    await updateDoc(docRef, rsvpData);
+                    formMessage.textContent = "Thank you! Your RSVP has been updated.";
+                } else {
+                    // This is a new RSVP.
+                    const docRef = await addDoc(collection(db, RSVP_COLLECTION), rsvpData);
+                    // Save the new document ID in local storage for future updates.
+                    localStorage.setItem('anikaRsvpDocId', docRef.id);
+                    formMessage.textContent = "Thank you! Your RSVP has been recorded.";
+                }
+                
                 formMessage.style.color = 'green';
                 rsvpForm.reset();
                 guestCountWrapper.style.display = 'none';
+
             } catch (error) {
-                console.error("Error adding document: ", error);
+                console.error("Error submitting RSVP: ", error);
                 formMessage.textContent = "An error occurred. Please try again.";
                 formMessage.style.color = 'red';
             } finally {
@@ -324,3 +339,4 @@
     </script>
 </body>
 </html>
+
