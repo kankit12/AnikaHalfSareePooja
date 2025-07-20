@@ -27,17 +27,6 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        .form-input {
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        .form-input:focus {
-            border-color: #D4AF37;
-            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
-            outline: none;
-        }
-        .guest-list-item {
-            border-left: 4px solid #D4AF37;
-        }
     </style>
 </head>
 <body class="antialiased">
@@ -72,183 +61,20 @@
             </div>
         </section>
 
-        <!-- RSVP Form Section -->
-        <section id="rsvp-section" class="mb-10 p-6 md:p-8 bg-white rounded-lg custom-shadow">
-            <h3 class="text-3xl font-bold text-center mb-6 text-amber-900">Kindly RSVP</h3>
-            <form id="rsvp-form" class="max-w-lg mx-auto">
-                <div class="mb-5">
-                    <label for="name" class="block mb-2 text-sm font-medium text-amber-800">Full Name(s)</label>
-                    <input type="text" id="name" name="name" class="form-input bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" placeholder="Amit & Lekha Patel" required>
-                </div>
-                <div class="mb-5">
-                    <label class="block mb-2 text-sm font-medium text-amber-800">Will you be attending?</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center p-3 border border-gray-300 rounded-lg w-full cursor-pointer hover:bg-green-50">
-                            <input type="radio" name="attending" value="Yes" class="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500" required>
-                            <span class="ml-3 text-sm font-medium text-gray-900">Graciously Accept</span>
-                        </label>
-                        <label class="flex items-center p-3 border border-gray-300 rounded-lg w-full cursor-pointer hover:bg-red-50">
-                            <input type="radio" name="attending" value="No" class="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500">
-                            <span class="ml-3 text-sm font-medium text-gray-900">Regretfully Decline</span>
-                        </label>
-                    </div>
-                </div>
-                 <div class="mb-6" id="guest-count-wrapper" style="display: none;">
-                    <label for="guests" class="block mb-2 text-sm font-medium text-amber-800">Number of Guests (including yourself)</label>
-                    <input type="number" id="guests" name="guests" class="form-input bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" value="1" min="1" max="10">
-                </div>
-                <button type="submit" id="submit-button" class="btn w-full text-white bg-amber-800 hover:bg-amber-900 focus:ring-4 focus:outline-none focus:ring-amber-300 font-medium rounded-lg text-sm px-5 py-3 text-center">Submit RSVP</button>
-            </form>
-            <div id="form-message" class="mt-4 text-center font-medium"></div>
-        </section>
-
-        <!-- Guest List Section -->
-        <section id="guest-list-section" class="p-6 md:p-8 bg-white/70 rounded-lg custom-shadow">
-             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-amber-900">Guest List</h3>
-                <button id="toggle-guest-list" class="text-sm text-amber-700 hover:underline">Show List</button>
-            </div>
-            <div id="guest-list-content" class="hidden">
-                <div class="bg-amber-100/50 p-4 rounded-lg mb-4 text-center">
-                    <p class="text-lg font-semibold text-amber-900">Total Attending: <span id="total-attending">0</span></p>
-                </div>
-                <div id="guest-list-container" class="space-y-3">
-                    <p class="text-center text-gray-500">Authenticating to see guest list...</p>
-                </div>
-            </div>
+        <!-- RSVP Section -->
+        <section id="rsvp-section" class="mb-10 p-6 md:p-8 bg-white rounded-lg custom-shadow text-center">
+            <h3 class="text-3xl font-bold mb-4 text-amber-900">Kindly RSVP</h3>
+            <p class="mb-6 text-amber-800/90">Please RSVP by Thursday, July 24th, 2025.</p>
+            <a id="rsvp-email-link" href="#" class="btn inline-block text-white bg-amber-800 hover:bg-amber-900 focus:ring-4 focus:outline-none focus:ring-amber-300 font-medium rounded-lg text-lg px-8 py-4">
+                RSVP via Email
+            </a>
         </section>
 
     </div>
 
-    <!-- Firebase and App Logic -->
-    <script type="module">
-        // Firebase Imports
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- CONFIGURATION ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'anika-saree-ceremony';
-        const RSVP_COLLECTION = `artifacts/${appId}/public/data/rsvps`;
-
-        // --- DOM ELEMENTS ---
-        const rsvpForm = document.getElementById('rsvp-form');
-        const formMessage = document.getElementById('form-message');
-        const guestCountWrapper = document.getElementById('guest-count-wrapper');
-        const attendingRadios = document.querySelectorAll('input[name="attending"]');
-        const guestListContainer = document.getElementById('guest-list-container');
-        const totalAttendingEl = document.getElementById('total-attending');
-        const toggleGuestListBtn = document.getElementById('toggle-guest-list');
-        const guestListContent = document.getElementById('guest-list-content');
-        
-        // --- INITIALIZATION ---
-        let db, auth;
-        let unsubscribeFromRsvps = null; // To hold the listener cleanup function
-
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch (e) {
-            console.error("Firebase initialization failed:", e);
-            document.getElementById('form-message').textContent = 'Error: Could not connect to the RSVP service.';
-        }
-
-        // --- GUEST LIST LOGIC ---
-        function listenForRsvps() {
-            // Prevent setting up multiple listeners
-            if (unsubscribeFromRsvps) {
-                unsubscribeFromRsvps();
-            }
-
-            if (!db) {
-                guestListContainer.innerHTML = '<p class="text-center text-red-500">Could not connect to guest list service.</p>';
-                return;
-            }
-            const q = query(collection(db, RSVP_COLLECTION));
-            
-            unsubscribeFromRsvps = onSnapshot(q, (snapshot) => {
-                if (snapshot.empty) {
-                    guestListContainer.innerHTML = '<p class="text-center text-gray-500">No RSVPs received yet.</p>';
-                    totalAttendingEl.textContent = '0';
-                    return;
-                }
-
-                let totalAttending = 0;
-                const rsvpList = [];
-                
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    rsvpList.push(data);
-                    if (data.attending === 'Yes') {
-                        totalAttending += data.guests || 0;
-                    }
-                });
-
-                // Sort by submission time, most recent first
-                rsvpList.sort((a, b) => b.submittedAt.toMillis() - a.submittedAt.toMillis());
-
-                guestListContainer.innerHTML = ''; // Clear previous list
-                
-                rsvpList.forEach(data => {
-                    const listItem = document.createElement('div');
-                    listItem.className = 'guest-list-item bg-white p-4 rounded-md flex justify-between items-center';
-                    
-                    const attendingStatus = data.attending === 'Yes' 
-                        ? `<span class="text-xs font-bold uppercase py-1 px-2 rounded-full bg-green-200 text-green-800">${data.guests} Guest(s)</span>`
-                        : `<span class="text-xs font-bold uppercase py-1 px-2 rounded-full bg-red-200 text-red-800">Not Attending</span>`;
-
-                    listItem.innerHTML = `
-                        <div>
-                            <p class="font-semibold text-gray-800">${data.name}</p>
-                            <p class="text-xs text-gray-500">Submitted: ${data.submittedAt.toDate().toLocaleString()}</p>
-                        </div>
-                        ${attendingStatus}
-                    `;
-                    guestListContainer.appendChild(listItem);
-                });
-
-                totalAttendingEl.textContent = totalAttending;
-
-            }, (error) => {
-                console.error("Error listening for RSVPs:", error);
-                guestListContainer.innerHTML = '<p class="text-center text-red-500">Could not load guest list. Check permissions.</p>';
-            });
-        }
-        
-        // --- AUTHENTICATION ---
-        // This is the central point for handling auth state.
-        if (auth) {
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    // User is signed in.
-                    console.log("Authentication successful, UID:", user.uid);
-                    // Now that we are authenticated, we can safely listen for data.
-                    listenForRsvps();
-                } else {
-                    // User is signed out.
-                    console.log("User is signed out. Attempting to sign in.");
-                    // Clean up any existing listeners.
-                    if (unsubscribeFromRsvps) unsubscribeFromRsvps();
-                    // Attempt to sign in.
-                     (async () => {
-                        try {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                await signInWithCustomToken(auth, __initial_auth_token);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
-                        } catch (error) {
-                            console.error("Authentication failed:", error);
-                            document.getElementById('form-message').textContent = 'Error: Could not authenticate with the RSVP service.';
-                        }
-                    })();
-                }
-            });
-        }
-
-        // --- EVENT DETAILS for Calendar ---
+    <!-- App Logic -->
+    <script>
+        // --- EVENT DETAILS for Calendar and RSVP ---
         const eventDetails = {
             title: "Anika Kantheti's Half Saree Ceremony",
             location: "220 Brincefield Place, Cary, NC, 27519",
@@ -258,6 +84,8 @@
             // End:   2025-07-27 20:30 EDT -> 2025-07-28 00:30 UTC
             startUTC: '20250727T223000Z',
             endUTC: '20250728T003000Z',
+            // IMPORTANT: Replace with the email address where you want to receive RSVPs.
+            rsvpEmail: "YOUR_EMAIL_HERE@example.com" 
         };
 
         // --- UI LOGIC ---
@@ -291,63 +119,33 @@
             appleLink.download = 'anikas-ceremony.ics';
         }
 
-        attendingRadios.forEach(radio => {
-            radio.addEventListener('change', (event) => {
-                if (event.target.value === 'Yes') {
-                    guestCountWrapper.style.display = 'block';
-                    document.getElementById('guests').setAttribute('required', 'true');
-                } else {
-                    guestCountWrapper.style.display = 'none';
-                    document.getElementById('guests').removeAttribute('required');
-                }
-            });
-        });
+        function setupRsvpLink() {
+            const rsvpLink = document.getElementById('rsvp-email-link');
+            const subject = encodeURIComponent(`RSVP for Anika's Half Saree Ceremony`);
+            const body = encodeURIComponent(
+`Hello,
 
-        rsvpForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!auth || !auth.currentUser) {
-                formMessage.textContent = "Service is not ready. Please try again in a moment.";
-                formMessage.style.color = 'red';
-                return;
-            }
+We would love to attend!
 
-            const submitButton = document.getElementById('submit-button');
-            submitButton.disabled = true;
-            submitButton.textContent = 'Submitting...';
-            formMessage.textContent = '';
+Name(s): 
+Number of Guests: 
 
-            const formData = new FormData(rsvpForm);
-            const rsvpData = {
-                name: formData.get('name'),
-                attending: formData.get('attending'),
-                guests: formData.get('attending') === 'Yes' ? parseInt(formData.get('guests'), 10) : 0,
-                submittedAt: new Date(),
-            };
+---
+Alternatively, please let us know if you cannot make it.
 
-            try {
-                await addDoc(collection(db, RSVP_COLLECTION), rsvpData);
-                formMessage.textContent = "Thank you! Your RSVP has been recorded.";
-                formMessage.style.color = 'green';
-                rsvpForm.reset();
-                guestCountWrapper.style.display = 'none';
-            } catch (error) {
-                console.error("Error adding document: ", error);
-                formMessage.textContent = "An error occurred. Please try again.";
-                formMessage.style.color = 'red';
-            } finally {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Submit RSVP';
-            }
-        });
-        
-        toggleGuestListBtn.addEventListener('click', () => {
-            const isHidden = guestListContent.classList.toggle('hidden');
-            toggleGuestListBtn.textContent = isHidden ? 'Show List' : 'Hide List';
-        });
+Thank you!`
+            );
+            rsvpLink.href = `mailto:${eventDetails.rsvpEmail}?subject=${subject}&body=${body}`;
+        }
 
         // --- INITIALIZE PAGE ---
-        setupCalendarLinks();
+        // This function runs when the page has finished loading.
+        window.onload = function() {
+            setupCalendarLinks();
+            setupRsvpLink();
+        };
 
     </script>
 </body>
 </html>
+
