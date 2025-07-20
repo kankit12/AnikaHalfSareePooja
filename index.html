@@ -53,7 +53,7 @@
 
         <!-- Invitation Image -->
         <div class="mb-10 rounded-lg overflow-hidden custom-shadow">
-            <!-- FIXED: Reverted to the working GitHub raw image link -->
+            <!-- FIXED: Using the direct "raw" GitHub URL for the image -->
             <img src="https://raw.githubusercontent.com/kankit12/AnikaHalfSareePooja/main/AnikaInvite.jpeg" alt="Invitation for Anika Kantheti's Half Saree Ceremony" class="w-full h-auto">
         </div>
 
@@ -124,17 +124,22 @@
     <script type="module">
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY_HERE",
-  authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
-  projectId: "PASTE_YOUR_PROJECT_ID_HERE",
-  storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
-  appId: "PASTE_YOUR_APP_ID_HERE"
-};
+        // --- CONFIGURATION ---
+        // FIXED: You MUST replace these placeholder values with your actual Firebase keys.
+        const firebaseConfig = {
+          apiKey: "AIzaSyADlqsxQg6Fel95c2GwBG7MHc6wd3tamO0",
+          authDomain: "anika-rsvp.firebaseapp.com",
+          projectId: "anika-rsvp",
+          storageBucket: "anika-rsvp.appspot.com",
+          messagingSenderId: "18132588378",
+          appId: "1:18132588378:web:74c9cc6ef963c24db34563",
+          measurementId: "G-0H29E1HKT9"
+        };
+        // The collection name can be simple for your own project
+        const RSVP_COLLECTION = `rsvps`;
 
         // --- DOM ELEMENTS ---
         const rsvpForm = document.getElementById('rsvp-form');
@@ -156,7 +161,8 @@ const firebaseConfig = {
             db = getFirestore(app);
         } catch (e) {
             console.error("Firebase initialization failed:", e);
-            document.getElementById('form-message').textContent = 'Error: Could not connect to the RSVP service.';
+            formMessage.textContent = 'Error: Could not connect to the RSVP service. Check your Firebase config.';
+            formMessage.style.color = 'red';
         }
 
         // --- GUEST LIST LOGIC ---
@@ -225,18 +231,10 @@ const firebaseConfig = {
                     listenForRsvps();
                 } else {
                     if (unsubscribeFromRsvps) unsubscribeFromRsvps();
-                    (async () => {
-                        try {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                await signInWithCustomToken(auth, __initial_auth_token);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
-                        } catch (error) {
-                            console.error("Authentication failed:", error);
-                            formMessage.textContent = `Authentication Error: ${error.message}`;
-                        }
-                    })();
+                    signInAnonymously(auth).catch(error => {
+                        console.error("Anonymous sign-in failed:", error);
+                        formMessage.textContent = `Authentication Error: ${error.message}`;
+                    });
                 }
             });
         }
@@ -326,5 +324,3 @@ const firebaseConfig = {
     </script>
 </body>
 </html>
-
-
