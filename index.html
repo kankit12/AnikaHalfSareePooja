@@ -53,7 +53,6 @@
 
         <!-- Invitation Image -->
         <div class="mb-10 rounded-lg overflow-hidden custom-shadow">
-            <!-- FIXED: Using the direct "raw" GitHub URL for the image -->
             <img src="https://raw.githubusercontent.com/kankit12/AnikaHalfSareePooja/main/AnikaInvite.jpeg" alt="Invitation for Anika Kantheti's Half Saree Ceremony" class="w-full h-auto">
         </div>
 
@@ -78,7 +77,7 @@
             <form id="rsvp-form" class="max-w-lg mx-auto">
                 <div class="mb-5">
                     <label for="name" class="block mb-2 text-sm font-medium text-amber-800">Full Name(s)</label>
-                    <input type="text" id="name" name="name" class="form-input bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" placeholder="Amit & Lekha Kantheti" required>
+                    <input type="text" id="name" name="name" class="form-input bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" placeholder="Amit & Lekha Patel" required>
                 </div>
                 <div class="mb-5">
                     <label class="block mb-2 text-sm font-medium text-amber-800">Will you be attending?</label>
@@ -125,10 +124,9 @@
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- CONFIGURATION ---
-        // You MUST replace these placeholder values with your actual Firebase keys.
         const firebaseConfig = {
           apiKey: "AIzaSyADlqsxQg6Fel95c2GwBG7MHc6wd3tamO0",
           authDomain: "anika-rsvp.firebaseapp.com",
@@ -138,7 +136,6 @@
           appId: "1:18132588378:web:74c9cc6ef963c24db34563",
           measurementId: "G-0H29E1HKT9"
         };
-        // The collection name can be simple for your own project
         const RSVP_COLLECTION = `rsvps`;
 
         // --- DOM ELEMENTS ---
@@ -168,11 +165,7 @@
         // --- GUEST LIST LOGIC ---
         function listenForRsvps() {
             if (unsubscribeFromRsvps) unsubscribeFromRsvps();
-
-            if (!db) {
-                guestListContainer.innerHTML = '<p class="text-center text-red-500">Database connection not available.</p>';
-                return;
-            }
+            if (!db) return;
             const q = query(collection(db, RSVP_COLLECTION));
             
             unsubscribeFromRsvps = onSnapshot(q, (snapshot) => {
@@ -181,10 +174,8 @@
                     totalAttendingEl.textContent = '0';
                     return;
                 }
-
                 let totalAttending = 0;
                 const rsvpList = [];
-                
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     rsvpList.push(data);
@@ -192,19 +183,14 @@
                         totalAttending += parseInt(data.guests, 10);
                     }
                 });
-
                 rsvpList.sort((a, b) => b.submittedAt.toMillis() - a.submittedAt.toMillis());
-
                 guestListContainer.innerHTML = ''; 
-                
                 rsvpList.forEach(data => {
                     const listItem = document.createElement('div');
                     listItem.className = 'guest-list-item bg-white p-4 rounded-md flex justify-between items-center';
-                    
                     const attendingStatus = data.attending === 'Yes' 
                         ? `<span class="text-xs font-bold uppercase py-1 px-2 rounded-full bg-green-200 text-green-800">${data.guests} Guest(s)</span>`
                         : `<span class="text-xs font-bold uppercase py-1 px-2 rounded-full bg-red-200 text-red-800">Not Attending</span>`;
-
                     listItem.innerHTML = `
                         <div>
                             <p class="font-semibold text-gray-800">${data.name}</p>
@@ -214,9 +200,7 @@
                     `;
                     guestListContainer.appendChild(listItem);
                 });
-
                 totalAttendingEl.textContent = totalAttending;
-
             }, (error) => {
                 console.error("Error listening for RSVPs:", error);
                 guestListContainer.innerHTML = `<p class="text-center text-red-500">Could not load guest list. Error: ${error.message}</p>`;
@@ -279,7 +263,7 @@
         rsvpForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!auth || !auth.currentUser) {
-                formMessage.textContent = "Service is not ready. Please try again in a moment.";
+                formMessage.textContent = "Service not ready. Please try again.";
                 formMessage.style.color = 'red';
                 return;
             }
@@ -289,43 +273,53 @@
             submitButton.textContent = 'Submitting...';
             formMessage.textContent = '';
 
-            const formData = new FormData(rsvpForm);
             const rsvpData = {
-                name: formData.get('name'),
-                attending: formData.get('attending'),
-                guests: formData.get('attending') === 'Yes' ? parseInt(formData.get('guests'), 10) : 0,
+                name: new FormData(rsvpForm).get('name'),
+                attending: new FormData(rsvpForm).get('attending'),
+                guests: new FormData(rsvpForm).get('attending') === 'Yes' ? parseInt(new FormData(rsvpForm).get('guests'), 10) : 0,
                 submittedAt: new Date(),
             };
             
-            // NEW: Check for an existing RSVP to update it.
             const storedDocId = localStorage.getItem('anikaRsvpDocId');
+            let docRef;
 
-            try {
-                if (storedDocId) {
-                    // This user has RSVP'd before, so update their existing entry.
-                    const docRef = doc(db, RSVP_COLLECTION, storedDocId);
-                    await updateDoc(docRef, rsvpData);
-                    formMessage.textContent = "Thank you! Your RSVP has been updated.";
+            if (storedDocId) {
+                docRef = doc(db, RSVP_COLLECTION, storedDocId);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    // Document exists, so update it.
+                    try {
+                        await updateDoc(docRef, rsvpData);
+                        formMessage.textContent = "Thank you! Your RSVP has been updated.";
+                    } catch (error) {
+                         console.error("Error updating document: ", error);
+                         formMessage.textContent = "An error occurred while updating. Please try again.";
+                         formMessage.style.color = 'red';
+                    }
                 } else {
-                    // This is a new RSVP.
-                    const docRef = await addDoc(collection(db, RSVP_COLLECTION), rsvpData);
-                    // Save the new document ID in local storage for future updates.
-                    localStorage.setItem('anikaRsvpDocId', docRef.id);
-                    formMessage.textContent = "Thank you! Your RSVP has been recorded.";
+                    // Document doesn't exist (stale ID), so create a new one.
+                    docRef = null; 
                 }
-                
-                formMessage.style.color = 'green';
-                rsvpForm.reset();
-                guestCountWrapper.style.display = 'none';
-
-            } catch (error) {
-                console.error("Error submitting RSVP: ", error);
-                formMessage.textContent = "An error occurred. Please try again.";
-                formMessage.style.color = 'red';
-            } finally {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Submit RSVP';
             }
+            
+            if (!docRef) {
+                // Create a new document if one doesn't exist or the stored one was stale.
+                try {
+                    const newDocRef = await addDoc(collection(db, RSVP_COLLECTION), rsvpData);
+                    localStorage.setItem('anikaRsvpDocId', newDocRef.id);
+                    formMessage.textContent = "Thank you! Your RSVP has been recorded.";
+                } catch(error) {
+                    console.error("Error adding document: ", error);
+                    formMessage.textContent = "An error occurred while submitting. Please try again.";
+                    formMessage.style.color = 'red';
+                }
+            }
+
+            formMessage.style.color = 'green';
+            rsvpForm.reset();
+            guestCountWrapper.style.display = 'none';
+            submitButton.disabled = false;
+            submitButton.textContent = 'Submit RSVP';
         });
         
         toggleGuestListBtn.addEventListener('click', () => {
@@ -339,4 +333,3 @@
     </script>
 </body>
 </html>
-
